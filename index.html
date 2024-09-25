@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuromoji.js サンプル</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/kuromoji/0.1.1/kuromoji.min.js"></script>
+</head>
+<body>
+    <h1>Kuromoji.js サンプル</h1>
+    <textarea id="input" rows="4" cols="50" placeholder="テキストを入力してください"></textarea><br>
+    <button id="analyze">解析する</button>
+    <pre id="result"></pre>
+
+    <script>
+        // Kuromoji.jsのセットアップ
+        kuromoji.builder({ dicPath: "https://cdnjs.cloudflare.com/ajax/libs/kuromoji/0.1.1/dic/" }).build((err, tokenizer) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+
+            document.getElementById("analyze").addEventListener("click", () => {
+                const text = document.getElementById("input").value;
+                const tokens = tokenizer.tokenize(text);
+
+                // 結果を整形してJSON形式に変換
+                const formattedResult = tokens.map(token => ({
+                    surface: token.surface_form, // 表層形
+                    baseForm: token.basic_form,   // 基本形
+                    partOfSpeech: token.part_of_speech, // 品詞
+                    reading: token.reading         // 読み
+                }));
+
+                // 結果を表示
+                document.getElementById("result").textContent = JSON.stringify(formattedResult, null, 2);
+            });
+        });
+    </script>
+</body>
+</html>
