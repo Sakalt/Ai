@@ -10,6 +10,7 @@
     <h1>Kuromoji.js サンプル</h1>
     <textarea id="input" rows="4" cols="50" placeholder="テキストを入力してください"></textarea><br>
     <button id="analyze">解析する</button>
+    <button id="copy">JSONをコピー</button>
     <pre id="result"></pre>
 
     <script>
@@ -26,14 +27,23 @@
 
                 // 結果を整形してJSON形式に変換
                 const formattedResult = tokens.map(token => ({
-                    surface: token.surface_form, // 表層形
-                    baseForm: token.basic_form,   // 基本形
-                    partOfSpeech: token.part_of_speech, // 品詞
-                    reading: token.reading         // 読み
+                    surface: token.surface_form,
+                    baseForm: token.basic_form,
+                    partOfSpeech: token.part_of_speech,
+                    reading: token.reading
                 }));
 
                 // 結果を表示
                 document.getElementById("result").textContent = JSON.stringify(formattedResult, null, 2);
+            });
+
+            document.getElementById("copy").addEventListener("click", () => {
+                const resultText = document.getElementById("result").textContent;
+                navigator.clipboard.writeText(resultText).then(() => {
+                    alert("JSONをコピーしました！");
+                }).catch(err => {
+                    console.error("コピーに失敗しました:", err);
+                });
             });
         });
     </script>
