@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Japanese GPT-2 Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@huggingface/tfjs-transformers"></script>
+</head>
+<body>
+    <h1>GPT-2 日本語デモ</h1>
+    <input type="text" id="input" placeholder="質問を入力してください" />
+    <button id="generate">生成</button>
+    <pre id="output"></pre>
+    <script>
+        let model;
+
+        // モデルの読み込み
+        async function loadModel() {
+            try {
+                model = await window.HuggingFace.loadModel('rinna/japanese-gpt2-medium');
+                console.log("モデルが読み込まれました");
+            } catch (error) {
+                console.error("モデルの読み込みエラー:", error);
+                document.getElementById('output').innerText = "モデルの読み込みに失敗しました。";
+            }
+        }
+
+        // テキスト生成
+        async function generateResponse(prompt) {
+            try {
+                const inputIds = await model.tokenizer.encode(prompt);
+                const inputTensor = tf.tensor2d([inputIds]);
+
+                const output = await model.generate(inputTensor, {
+                    max_length: 150,
+                    num_return_sequences: 1,
+                });
+
+                const generatedIds = output[0].dataSync();
+                const response = model.tokenizer.decode(generatedIds, { skipSpecialTokens: true });
+                return response;
+            } catch (error) {
+                console.error("応答生成エラー:", error);
+                throw new Error("応答生成に失敗しました。");
+            }
+        }
+
+        document.getElementById('generate').onclick = async () => {
+            try {
+                const userInput = document.getElementById('input').value;
+                if (!userInput) {
+                    throw new Error("質問を入力してください。");
+                }
+                const response = await generateResponse(userInput);
+                document.getElementById('output').innerText = response;
+            } catch (error) {
+                console.error("エラー:", error);
+                document.getElementById('output').innerText = "エラーが発生しました: " + error.message;
+            }
+        };
+
+        loadModel();
+    </script>
+</body>
+</html>
