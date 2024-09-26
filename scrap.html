@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wiktionaryデータスクレイピングツール</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/puppeteer/10.4.0/puppeteer.min.js"></script>
 </head>
 <body>
     <h1>Wiktionaryデータスクレイピングツール</h1>
@@ -42,18 +41,20 @@
             document.getElementById('wordInput').value = '学習, 人工知能, 日本語, 情報, 技術, プログラム, 計算, データ, クラウド, コンピュータ, ネットワーク, 教育, 機械, 言語, 自然, ロボット, 数学, 医学, 自動, 科学';
         });
 
-        // 単語をスクレイピングする関数
-        async function scrapeWord(page, word) {
-            const url = `https://ja.wiktionary.org/wiki/${encodeURIComponent(word.trim())}`;
-            await page.goto(url, { waitUntil: 'domcontentloaded' });
+        // 単語をWiktionary APIで取得する関数
+        async function fetchWordData(word) {
+            const url = `https://ja.wiktionary.org/w/api.php?action=parse&format=json&origin=*&page=${encodeURIComponent(word)}&prop=text`;
+            const response = await fetch(url);
+            const data = await response.json();
 
-            const wordData = await page.evaluate(() => {
-                const word = document.querySelector('h1#firstHeading').innerText;
-                const definition = document.querySelector('ol li')?.innerText || '定義が見つかりません';
-                return { word, definition };
-            });
-            
-            return wordData;
+            if (data.parse && data.parse.text['*']) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(data.parse.text['*'], 'text/html');
+                const definitions = Array.from(doc.querySelectorAll('ol li')).map(li => li.innerText);
+                return { word, definitions };
+            } else {
+                return { word, definitions: ['定義が見つかりません'] };
+            }
         }
 
         // スクレイピングの開始
@@ -62,39 +63,30 @@
             const resultElement = document.getElementById('result');
             resultElement.value = 'スクレイピング中...\n';
 
-            try {
-                const browser = await puppeteer.launch();
-                const page = await browser.newPage();
-                let allResults = [];
+            let allResults = [];
 
-                for (let i = 0; i < words.length; i++) {
-                    const word = words[i].trim();
-                    if (word) {
-                        const wordData = await scrapeWord(page, word);
-                        allResults.push(wordData);
-                        resultElement.value += `単語: ${wordData.word}\n定義: ${wordData.definition}\n\n`;
-
-                        // 1秒待機 (サーバーへの負荷軽減)
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                    }
+            for (const word of words) {
+                const trimmedWord = word.trim();
+                if (trimmedWord) {
+                    const wordData = await fetchWordData(trimmedWord);
+                    allResults.push(wordData);
+                    resultElement.value += `単語: ${wordData.word}\n定義: ${wordData.definitions.join(', ')}\n\n`;
+                    // 1秒待機 (サーバーへの負荷軽減)
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
-
-                document.getElementById('copyButton').style.display = 'block';
-                document.getElementById('downloadButton').style.display = 'block';
-
-                // JSONダウンロード機能
-                document.getElementById('downloadButton').addEventListener('click', () => {
-                    const blob = new Blob([JSON.stringify(allResults, null, 2)], { type: 'application/json' });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = 'wiktionary_data.json';
-                    link.click();
-                });
-
-                await browser.close();
-            } catch (error) {
-                resultElement.value = `エラー: ${error.message}`;
             }
+
+            document.getElementById('copyButton').style.display = 'block';
+            document.getElementById('downloadButton').style.display = 'block';
+
+            // JSONダウンロード機能
+            document.getElementById('downloadButton').addEventListener('click', () => {
+                const blob = new Blob([JSON.stringify(allResults, null, 2)], { type: 'application/json' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'wiktionary_data.json';
+                link.click();
+            });
         });
 
         // コピーボタン機能
