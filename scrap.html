@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiktionaryデータスクレイピングツール</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/puppeteer/10.4.0/puppeteer.min.js"></script>
+</head>
+<body>
+    <h1>Wiktionaryデータスクレイピングツール</h1>
+
+    <!-- サンプル単語の表示 -->
+    <label for="sampleWords">サンプル単語（クリックして使用）:</label>
+    <p id="sampleWords">学習, 人工知能, 日本語, 情報, 技術, プログラム, 計算, データ, クラウド, コンピュータ, ネットワーク, 教育, 機械, 言語, 自然, ロボット, 数学, 医学, 自動, 科学</p>
+
+    <!-- 単語入力フィールド -->
+    <label for="wordInput">スクレイピングする単語 (カンマ区切り):</label>
+    <input type="text" id="wordInput" placeholder="例: 学習, 人工知能, 日本語">
+
+    <!-- スクレイピング開始ボタン -->
+    <button id="scrapeButton">スクレイピング開始</button>
+
+    <!-- 結果表示 -->
+    <h2>スクレイピング結果</h2>
+    <textarea id="result" style="width: 100%; height: 300px;" readonly></textarea>
+    <br>
+    <button id="copyButton" style="display:none;">結果をコピー</button>
+    <button id="downloadButton" style="display:none;">JSONとしてダウンロード</button>
+
+    <!-- クレジット -->
+    <footer>
+        <p>
+            このサイトで使用されているデータは、<a href="https://ja.wiktionary.org/">Wiktionary</a>から取得されています。
+            クリエイティブ・コモンズ 表示 - 継承 3.0 非移植 (CC BY-SA 3.0) ライセンスのもとで提供されています。
+            <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.ja">詳細はこちら</a>。
+        </p>
+    </footer>
+
+    <script>
+        // サンプル単語をクリックすると、入力欄に挿入
+        document.getElementById('sampleWords').addEventListener('click', () => {
+            document.getElementById('wordInput').value = '学習, 人工知能, 日本語, 情報, 技術, プログラム, 計算, データ, クラウド, コンピュータ, ネットワーク, 教育, 機械, 言語, 自然, ロボット, 数学, 医学, 自動, 科学';
+        });
+
+        // 単語をスクレイピングする関数
+        async function scrapeWord(page, word) {
+            const url = `https://ja.wiktionary.org/wiki/${encodeURIComponent(word.trim())}`;
+            await page.goto(url, { waitUntil: 'domcontentloaded' });
+
+            const wordData = await page.evaluate(() => {
+                const word = document.querySelector('h1#firstHeading').innerText;
+                const definition = document.querySelector('ol li')?.innerText || '定義が見つかりません';
+                return { word, definition };
+            });
+            
+            return wordData;
+        }
+
+        // スクレイピングの開始
+        document.getElementById('scrapeButton').addEventListener('click', async () => {
+            const words = document.getElementById('wordInput').value.split(',');
+            const resultElement = document.getElementById('result');
+            resultElement.value = 'スクレイピング中...\n';
+
+            try {
+                const browser = await puppeteer.launch();
+                const page = await browser.newPage();
+                let allResults = [];
+
+                for (let i = 0; i < words.length; i++) {
+                    const word = words[i].trim();
+                    if (word) {
+                        const wordData = await scrapeWord(page, word);
+                        allResults.push(wordData);
+                        resultElement.value += `単語: ${wordData.word}\n定義: ${wordData.definition}\n\n`;
+
+                        // 1秒待機 (サーバーへの負荷軽減)
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+
+                document.getElementById('copyButton').style.display = 'block';
+                document.getElementById('downloadButton').style.display = 'block';
+
+                // JSONダウンロード機能
+                document.getElementById('downloadButton').addEventListener('click', () => {
+                    const blob = new Blob([JSON.stringify(allResults, null, 2)], { type: 'application/json' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'wiktionary_data.json';
+                    link.click();
+                });
+
+                await browser.close();
+            } catch (error) {
+                resultElement.value = `エラー: ${error.message}`;
+            }
+        });
+
+        // コピーボタン機能
+        document.getElementById('copyButton').addEventListener('click', () => {
+            const resultElement = document.getElementById('result');
+            resultElement.select();
+            document.execCommand('copy');
+            alert('結果がクリップボードにコピーされました');
+        });
+    </script>
+</body>
+</html>
